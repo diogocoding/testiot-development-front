@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from 'react';
 import { mockUsers } from "../data/mock";
 import { PageHeader, StatusBadge, Toggle, Btn, Modal, Input, Table, Tr, Td } from "../components/UI";
 
@@ -49,20 +49,70 @@ function UserCard({ user, onToggle, onDelete }) {
 }
 
 export default function Users() {
-  const [users, setUsers] = useState(mockUsers);
+  // 1. O estado dos usuários (que você já tinha arrumado)
+  const [users, setUsers] = useState([]);
+  
+  // 2. AS VARIÁVEIS QUE ESTAVAM FALTANDO (Para a tela não quebrar)
+  const [view, setView] = useState("grid");
   const [showModal, setShowModal] = useState(false);
-  const [view, setView] = useState("grid"); // grid | table
   const [newUser, setNewUser] = useState({ name: "", uid: "", role: "" });
 
-  const toggleUser = (id) => setUsers(us => us.map(u => u.id === id ? { ...u, active: !u.active } : u));
-  const deleteUser = (id) => setUsers(us => us.filter(u => u.id !== id));
-  const addUser = () => {
-    if (!newUser.name || !newUser.uid) return;
-    setUsers(us => [...us, { ...newUser, id: Date.now(), active: true, accesses: 0, lastSeen: "Nunca" }]);
-    setNewUser({ name: "", uid: "", role: "" });
-    setShowModal(false);
+  // 3. A chamada da API
+  useEffect(() => {
+    const apiURL = import.meta.env.VITE_API_URL;
+    fetch(`${apiURL}/api/users`)
+      .then(resposta => resposta.json())
+      .then(dados => setUsers(dados))
+      .catch(erro => console.error("Erro na API:", erro));
+  }, []);
+
+  // 4. AS FUNÇÕES QUE ESTAVAM FALTANDO (Para os botões funcionarem)
+  const toggleUser = (id) => {
+    setUsers(us => us.map(u => u.id === id ? { ...u, active: !u.active } : u));
   };
 
+  const deleteUser = (id) => {
+    setUsers(us => us.filter(u => u.id !== id));
+  };
+
+  const addUser = async () => {
+    // 1. Validação simples para não enviar vazio
+    if (!newUser.name || !newUser.uid) return;
+
+    // 2. Pega a URL do seu .env
+    const apiURL = import.meta.env.VITE_API_URL;
+
+    try {
+      // 3. Faz a chamada POST para o C#
+      const resposta = await fetch(`${apiURL}/api/users`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json' // Avisa o C# que estamos mandando um JSON
+        },
+        body: JSON.stringify({
+          name: newUser.name,
+          uid: newUser.uid,
+          role: newUser.role
+        })
+      });
+
+      // 4. Se o C# respondeu com sucesso (201 Created)
+      if (resposta.ok) {
+        const usuarioCriado = await resposta.json();
+        
+        // Adiciona o novo usuário (já com o ID gerado pelo backend) na lista da tela
+        setUsers(us => [...us, usuarioCriado]);
+        
+        // Fecha o modal e limpa os campos
+        setShowModal(false);
+        setNewUser({ name: "", uid: "", role: "" });
+      } else {
+        console.error("Erro ao cadastrar:", await resposta.text());
+      }
+    } catch (erro) {
+      console.error("Falha na comunicação com a API:", erro);
+    }
+  };
   const active = users.filter(u => u.active).length;
 
   return (
