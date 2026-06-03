@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { mockUsers } from "../data/mock";
 import { PageHeader, StatusBadge, Toggle, Btn, Modal, Input, Table, Tr, Td } from "../components/UI";
 
-function UserCard({ user, onToggle, onDelete }) {
+// Adicionamos a propriedade "onEdit" no UserCard
+function UserCard({ user, onToggle, onDelete, onEdit }) {
   return (
     <div style={{
       background: "#0d1220", border: "1px solid #1a2540", borderRadius: 12,
@@ -37,11 +37,12 @@ function UserCard({ user, onToggle, onDelete }) {
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div style={{ fontSize: 10, color: "#4a6080" }}>
-          <span style={{ color: "#6a82a0", fontWeight: 600 }}>{user.accesses}</span> acessos · {user.lastSeen}
+          <span style={{ color: "#6a82a0", fontWeight: 600 }}>{user.accesses}</span> acessos
         </div>
         <div style={{ display: "flex", gap: 6 }}>
-          <Btn small variant="ghost" onClick={() => {}}>Editar</Btn>
-          <Btn small variant="danger" onClick={() => onDelete(user.id)}>Remover</Btn>
+          {/* Conectado ao botão Editar */}
+          <Btn small variant="ghost" onClick={() => onEdit(user)}>Editar</Btn>
+          <Btn small variant="danger" onClick={() => onDelete(user.id)}>✕</Btn>
         </div>
       </div>
     </div>
@@ -49,15 +50,14 @@ function UserCard({ user, onToggle, onDelete }) {
 }
 
 export default function Users() {
-  // 1. O estado dos usuários (que você já tinha arrumado)
   const [users, setUsers] = useState([]);
-  
-  // 2. AS VARIÁVEIS QUE ESTAVAM FALTANDO (Para a tela não quebrar)
   const [view, setView] = useState("grid");
   const [showModal, setShowModal] = useState(false);
   const [newUser, setNewUser] = useState({ name: "", uid: "", role: "" });
+  
+  // NOVO: Estado para saber se estamos Editando ou Criando
+  const [editingId, setEditingId] = useState(null);
 
-  // 3. A chamada da API
   useEffect(() => {
     const apiURL = import.meta.env.VITE_API_URL;
     fetch(`${apiURL}/api/users`)
@@ -66,58 +66,111 @@ export default function Users() {
       .catch(erro => console.error("Erro na API:", erro));
   }, []);
 
-  // 4. AS FUNÇÕES QUE ESTAVAM FALTANDO (Para os botões funcionarem)
-  const toggleUser = (id) => {
-    setUsers(us => us.map(u => u.id === id ? { ...u, active: !u.active } : u));
+  // --- NOVA LÓGICA DE EXCLUIR NA NUVEM ---
+  const deleteUser = async (id) => {
+    if (!window.confirm("Tem certeza que deseja excluir este usuário definitivamente?")) return;
+    
+    const apiURL = import.meta.env.VITE_API_URL;
+    try {
+      const resposta = await fetch(`${apiURL}/api/users/${id}`, { method: 'DELETE' });
+      if (resposta.ok) {
+        setUsers(us => us.filter(u => u.id !== id));
+      }
+    } catch (erro) {
+      console.error("Falha ao excluir:", erro);
+    }
   };
 
-  const deleteUser = (id) => {
-    setUsers(us => us.filter(u => u.id !== id));
+  // --- NOVA LÓGICA DE TOGGLE NA NUVEM ---
+  const toggleUser = async (id) => {
+    const usuarioAlvo = users.find(u => u.id === id);
+    if (!usuarioAlvo) return;
+
+    const usuarioAtualizado = { ...usuarioAlvo, active: !usuarioAlvo.active };
+    
+    // Atualiza a tela primeiro (otimista) para não parecer que está travado
+    setUsers(us => us.map(u => u.id === id ? usuarioAtualizado : u));
+
+    const apiURL = import.meta.env.VITE_API_URL;
+    try {
+      const resposta = await fetch(`${apiURL}/api/users/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(usuarioAtualizado)
+      });
+      
+      // Se der erro no C#, desfaz a animação da tela
+      if (!resposta.ok) setUsers(us => us.map(u => u.id === id ? usuarioAlvo : u));
+    } catch (erro) {
+      setUsers(us => us.map(u => u.id === id ? usuarioAlvo : u));
+      console.error("Falha ao mudar status:", erro);
+    }
   };
 
-  const addUser = async () => {
-    // 1. Validação simples para não enviar vazio
+  // --- LÓGICA DE ABRIR E FECHAR MODAL ---
+  const openCadastrarModal = () => {
+    setEditingId(null);
+    setNewUser({ name: "", uid: "", role: "" });
+    setShowModal(true);
+  };
+
+  const openEditarModal = (user) => {
+    setEditingId(user.id);
+    setNewUser({ name: user.name, uid: user.uid, role: user.role });
+    setShowModal(true);
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+    setEditingId(null);
+    setNewUser({ name: "", uid: "", role: "" });
+  };
+
+  // --- LÓGICA UNIFICADA: SALVAR (CRIAR ou EDITAR) ---
+  const saveUser = async () => {
     if (!newUser.name || !newUser.uid) return;
 
-    // 2. Pega a URL do seu .env
     const apiURL = import.meta.env.VITE_API_URL;
 
     try {
-      // 3. Faz a chamada POST para o C#
-      const resposta = await fetch(`${apiURL}/api/users`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json' // Avisa o C# que estamos mandando um JSON
-        },
-        body: JSON.stringify({
-          name: newUser.name,
-          uid: newUser.uid,
-          role: newUser.role
-        })
-      });
+      if (editingId) {
+        // MODO: EDITAR (PUT)
+        const usuarioExistente = users.find(u => u.id === editingId);
+        const resposta = await fetch(`${apiURL}/api/users/${editingId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...newUser, active: usuarioExistente.active })
+        });
 
-      // 4. Se o C# respondeu com sucesso (201 Created)
-      if (resposta.ok) {
-        const usuarioCriado = await resposta.json();
-        
-        // Adiciona o novo usuário (já com o ID gerado pelo backend) na lista da tela
-        setUsers(us => [...us, usuarioCriado]);
-        
-        // Fecha o modal e limpa os campos
-        setShowModal(false);
-        setNewUser({ name: "", uid: "", role: "" });
+        if (resposta.ok) {
+          const atualizado = await resposta.json();
+          setUsers(us => us.map(u => u.id === editingId ? atualizado : u));
+          closeModal();
+        }
       } else {
-        console.error("Erro ao cadastrar:", await resposta.text());
+        // MODO: CADASTRAR (POST)
+        const resposta = await fetch(`${apiURL}/api/users`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newUser)
+        });
+
+        if (resposta.ok) {
+          const criado = await resposta.json();
+          setUsers(us => [...us, criado]);
+          closeModal();
+        }
       }
     } catch (erro) {
-      console.error("Falha na comunicação com a API:", erro);
+      console.error("Falha ao salvar usuário:", erro);
     }
   };
-  const active = users.filter(u => u.active).length;
+
+  const activeCount = users.filter(u => u.active).length;
 
   return (
     <div>
-      <PageHeader title="Usuários" sub={`${active} ativos · ${users.length - active} bloqueados`}>
+      <PageHeader title="Usuários" sub={`${activeCount} ativos · ${users.length - activeCount} bloqueados`}>
         <div style={{ display: "flex", background: "#0d1220", border: "1px solid #1a2540", borderRadius: 7, overflow: "hidden" }}>
           {["grid", "table"].map(v => (
             <button key={v} onClick={() => setView(v)} style={{
@@ -127,7 +180,7 @@ export default function Users() {
             }}>{v === "grid" ? "⊞" : "☰"}</button>
           ))}
         </div>
-        <Btn onClick={() => setShowModal(true)}>+ Cadastrar Cartão</Btn>
+        <Btn onClick={openCadastrarModal}>+ Cadastrar Cartão</Btn>
       </PageHeader>
 
       <div style={{ padding: "24px 32px" }}>
@@ -135,8 +188,8 @@ export default function Users() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12, marginBottom: 24 }}>
           {[
             { label: "TOTAL CADASTRADOS", val: users.length, color: "#e2e8f4" },
-            { label: "ACESSO ATIVO", val: active, color: "#00c8a0" },
-            { label: "BLOQUEADOS", val: users.length - active, color: "#ff5566" },
+            { label: "ACESSO ATIVO", val: activeCount, color: "#00c8a0" },
+            { label: "BLOQUEADOS", val: users.length - activeCount, color: "#ff5566" },
           ].map(s => (
             <div key={s.label} style={{ background: "#0d1220", border: "1px solid #1a2540", borderRadius: 10, padding: "14px 18px" }}>
               <div style={{ fontSize: 9, color: "#4a6080", letterSpacing: "0.1em", marginBottom: 6 }}>{s.label}</div>
@@ -147,11 +200,11 @@ export default function Users() {
 
         {view === "grid" ? (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>
-            {users.map(u => <UserCard key={u.id} user={u} onToggle={toggleUser} onDelete={deleteUser} />)}
+            {users.map(u => <UserCard key={u.id} user={u} onToggle={toggleUser} onDelete={deleteUser} onEdit={openEditarModal} />)}
           </div>
         ) : (
           <div style={{ background: "#0d1220", border: "1px solid #1a2540", borderRadius: 12, overflow: "hidden" }}>
-            <Table headers={["NOME", "UID DO CARTÃO", "CARGO", "ACESSOS", "ÚLTIMO ACESSO", "STATUS", "AÇÕES"]}>
+            <Table headers={["NOME", "UID DO CARTÃO", "CARGO", "ACESSOS", "STATUS", "AÇÕES"]}>
               {users.map(u => (
                 <Tr key={u.id}>
                   <Td>{u.name}</Td>
@@ -160,11 +213,10 @@ export default function Users() {
                   </Td>
                   <Td muted>{u.role}</Td>
                   <Td><span style={{ color: "#00c8a0", fontWeight: 600 }}>{u.accesses}</span></Td>
-                  <Td muted>{u.lastSeen}</Td>
                   <Td><Toggle active={u.active} onChange={() => toggleUser(u.id)} /></Td>
                   <Td>
                     <div style={{ display: "flex", gap: 6 }}>
-                      <Btn small variant="ghost" onClick={() => {}}>Editar</Btn>
+                      <Btn small variant="ghost" onClick={() => openEditarModal(u)}>Editar</Btn>
                       <Btn small variant="danger" onClick={() => deleteUser(u.id)}>✕</Btn>
                     </div>
                   </Td>
@@ -176,7 +228,7 @@ export default function Users() {
       </div>
 
       {showModal && (
-        <Modal title="Cadastrar Novo Cartão" onClose={() => setShowModal(false)}>
+        <Modal title={editingId ? "Editar Usuário" : "Cadastrar Novo Cartão"} onClose={closeModal}>
           <div style={{ fontSize: 11, color: "#4a6080", marginBottom: 20, lineHeight: 1.7, background: "rgba(0,200,160,0.06)", border: "1px solid rgba(0,200,160,0.15)", borderRadius: 8, padding: "12px" }}>
             💡 Aproxime o cartão do leitor ESP32 para capturar o UID automaticamente, ou insira manualmente abaixo.
           </div>
@@ -184,8 +236,8 @@ export default function Users() {
           <Input label="UID DO CARTÃO" value={newUser.uid} onChange={v => setNewUser(n => ({ ...n, uid: v }))} placeholder="Ex: A1 B2 C3 D4" mono />
           <Input label="CARGO / FUNÇÃO" value={newUser.role} onChange={v => setNewUser(n => ({ ...n, role: v }))} placeholder="Ex: Desenvolvedor" />
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 8 }}>
-            <Btn variant="ghost" onClick={() => setShowModal(false)}>Cancelar</Btn>
-            <Btn onClick={addUser}>Cadastrar</Btn>
+            <Btn variant="ghost" onClick={closeModal}>Cancelar</Btn>
+            <Btn onClick={saveUser}>{editingId ? "Salvar Alterações" : "Cadastrar"}</Btn>
           </div>
         </Modal>
       )}
