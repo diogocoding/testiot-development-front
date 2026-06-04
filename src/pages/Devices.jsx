@@ -194,9 +194,7 @@ export default function Devices() {
             <div style={{ fontSize: 11, color: "#6a82a0", lineHeight: 1.7 }}>
               Os ESP32 se comunicam com a API hospedada na AWS via HTTP POST. O endpoint público permite que os dispositivos operem de qualquer rede com acesso à internet.
             </div>
-            <div style={{ fontFamily: "inherit", fontSize: 11, color: "#4f8ef7", marginTop: 8, background: "#080c14", display: "inline-block", padding: "4px 12px", borderRadius: 6, border: "1px solid #1a2540", letterSpacing: "0.04em" }}>
-              https://api.access-control.senac.br/v1/validate
-            </div>
+            
           </div>
         </div>
 
