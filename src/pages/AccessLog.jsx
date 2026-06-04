@@ -17,8 +17,9 @@ export default function AccessLog() {
     <div>
       <PageHeader title="Registros de Acesso" sub={`Total de ${logs.length} eventos registrados`} />
 
-      <div style={{ padding: "24px 32px" }}>
+      <div style={{ padding: "24px clamp(16px,4vw,32px)" }}>
         <div style={{ background: "#0d1220", border: "1px solid #1a2540", borderRadius: 12, overflow: "hidden" }}>
+          <div style={{ overflowX: "auto" }}>
           <Table headers={["DATA E HORA", "USUÁRIO", "CARTÃO (UID)", "DISPOSITIVO", "STATUS", "MENSAGEM"]}>
             {logs.map(log => {
               const dataFormatada = new Date(log.timestamp).toLocaleString('pt-BR');
@@ -44,6 +45,7 @@ export default function AccessLog() {
               );
             })}
           </Table>
+          </div>
         </div>
       </div>
     </div>

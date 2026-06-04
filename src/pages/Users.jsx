@@ -183,7 +183,7 @@ export default function Users() {
         <Btn onClick={openCadastrarModal}>+ Cadastrar Cartão</Btn>
       </PageHeader>
 
-      <div style={{ padding: "24px 32px" }}>
+      <div style={{ padding: "24px clamp(16px,4vw,32px)" }}>
         {/* Stats */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12, marginBottom: 24 }}>
           {[
@@ -204,6 +204,7 @@ export default function Users() {
           </div>
         ) : (
           <div style={{ background: "#0d1220", border: "1px solid #1a2540", borderRadius: 12, overflow: "hidden" }}>
+            <div style={{ overflowX: "auto" }}>
             <Table headers={["NOME", "UID DO CARTÃO", "CARGO", "ACESSOS", "STATUS", "AÇÕES"]}>
               {users.map(u => (
                 <Tr key={u.id}>
@@ -223,6 +224,7 @@ export default function Users() {
                 </Tr>
               ))}
             </Table>
+            </div>
           </div>
         )}
       </div>

@@ -44,13 +44,22 @@ export function PageHeader({ title, sub, children }) {
       display: "flex", alignItems: "flex-end", justifyContent: "space-between",
       background: "rgba(13,18,32,0.6)", backdropFilter: "blur(8px)",
       position: "sticky", top: 0, zIndex: 10,
-    }}>
-      <div>
+      flexWrap: "wrap", gap: 12,
+    }}
+      className="page-header"
+    >
+      <div style={{ paddingLeft: "var(--header-left-pad, 0px)" }}>
         <div style={{ fontSize: 9, color: "#4a6080", letterSpacing: "0.15em", marginBottom: 4 }}>SISTEMA DE CONTROLE DE ACESSO</div>
         <h1 style={{ fontSize: 22, fontWeight: 700, color: "#e2e8f4", letterSpacing: "-0.01em", margin: 0 }}>{title}</h1>
         {sub && <p style={{ fontSize: 12, color: "#6a82a0", marginTop: 4 }}>{sub}</p>}
       </div>
       {children && <div style={{ display: "flex", gap: 10 }}>{children}</div>}
+      <style>{`
+        @media (max-width: 768px) {
+          .page-header { padding: 20px 20px 16px !important; }
+          .page-header > div:first-child { --header-left-pad: 44px; }
+        }
+      `}</style>
     </div>
   );
 }

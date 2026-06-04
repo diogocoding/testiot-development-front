@@ -167,9 +167,9 @@ export default function Devices() {
         <Btn onClick={openAddModal}>+ Adicionar ESP32</Btn>
       </PageHeader>
 
-      <div style={{ padding: "24px 32px" }}>
+      <div style={{ padding: "24px clamp(16px,4vw,32px)" }}>
         {/* Stats */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12, marginBottom: 24 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 12, marginBottom: 24 }}>
           {[
             { label: "TOTAL DE DISPOSITIVOS", val: devices.length, color: "#e2e8f4" },
             { label: "ONLINE", val: online, color: "#00c8a0" },
